@@ -1,5 +1,7 @@
 import pygame, random
 
+
+# Definicion de colores
 WIDTH = 800
 HEIGHT = 600
 BLACK = (0, 0, 0)
@@ -9,8 +11,10 @@ GREEN = (0, 255, 0)
 pygame.init()
 pygame.mixer.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Shooter")
+pygame.display.set_caption("Galaga Pobre")
 clock = pygame.time.Clock()
+
+#Titulos y de mas
 
 def draw_text(surface, text, size, x, y):
 	font = pygame.font.SysFont("serif", size)
@@ -18,6 +22,8 @@ def draw_text(surface, text, size, x, y):
 	text_rect = text_surface.get_rect()
 	text_rect.midtop = (x, y)
 	surface.blit(text_surface, text_rect)
+
+#Barrita de vida
 
 def draw_shield_bar(surface, x, y, percentage):
 	BAR_LENGHT = 100
@@ -28,10 +34,31 @@ def draw_shield_bar(surface, x, y, percentage):
 	pygame.draw.rect(surface, GREEN, fill)
 	pygame.draw.rect(surface, WHITE, border, 2)
 
-class Player(pygame.sprite.Sprite):
-	def __init__(self):
+#Clase del sprite de los disparos, inyeccion de la dependencia pygame
+
+class Bullet(pygame.sprite.Sprite):
+	def __init__(self, x, y, pg: pygame):
 		super().__init__()
-		self.image = pygame.image.load("assets/player.png").convert()
+		self.pg = pg
+		self.image = self.pg.image.load("assets/laser1.png")
+		self.image.set_colorkey(BLACK)
+		self.rect = self.image.get_rect()
+		self.rect.y = y
+		self.rect.centerx = x
+		self.speedy = -10
+
+	def update(self):
+		self.rect.y += self.speedy
+		if self.rect.bottom < 0:
+			self.kill()
+   
+#Clase del sprite del jugador, inyeccion de pygame como dependecia
+
+class Player(pygame.sprite.Sprite):
+	def __init__(self, pg: pygame):
+		super().__init__()
+		self.pg = pg 
+		self.image = self.pg.image.load("assets/player.png").convert()
 		self.image.set_colorkey(BLACK)
 		self.rect = self.image.get_rect()
 		self.rect.centerx = WIDTH // 2
@@ -41,10 +68,10 @@ class Player(pygame.sprite.Sprite):
 
 	def update(self):
 		self.speed_x = 0
-		keystate = pygame.key.get_pressed()
-		if keystate[pygame.K_LEFT]:
+		keystate = self.pg.key.get_pressed()
+		if keystate[self.pg.K_LEFT]:
 			self.speed_x = -5
-		if keystate[pygame.K_RIGHT]:
+		if keystate[self.pg.K_RIGHT]:
 			self.speed_x = 5
 		self.rect.x += self.speed_x
 		if self.rect.right > WIDTH:
@@ -53,10 +80,12 @@ class Player(pygame.sprite.Sprite):
 			self.rect.left = 0
 
 	def shoot(self):
-		bullet = Bullet(self.rect.centerx, self.rect.top)
+		bullet = Bullet(self.rect.centerx, self.rect.top, pygame)
 		all_sprites.add(bullet)
 		bullets.add(bullet)
-		#laser_sound.play()
+		laser_sound.play()
+
+#Clase de los sprites de los distintos meteoros
 
 class Meteor(pygame.sprite.Sprite):
 	def __init__(self):
@@ -77,33 +106,21 @@ class Meteor(pygame.sprite.Sprite):
 			self.rect.y = random.randrange(-140, - 100)
 			self.speedy = random.randrange(1, 10)
 
-class Bullet(pygame.sprite.Sprite):
-	def __init__(self, x, y):
-		super().__init__()
-		self.image = pygame.image.load("assets/laser1.png")
-		self.image.set_colorkey(BLACK)
-		self.rect = self.image.get_rect()
-		self.rect.y = y
-		self.rect.centerx = x
-		self.speedy = -10
-
-	def update(self):
-		self.rect.y += self.speedy
-		if self.rect.bottom < 0:
-			self.kill()
+#Clase de la explosion al validar choque, se inyecta pygame como dependencia
 
 class Explosion(pygame.sprite.Sprite):
-	def __init__(self, center):
+	def __init__(self, center, pg: pygame):
 		super().__init__()
+		self.pg = pg
 		self.image = explosion_anim[0]
 		self.rect = self.image.get_rect()
 		self.rect.center = center 
 		self.frame = 0
-		self.last_update = pygame.time.get_ticks()
-		self.frame_rate = 50 # VELOCIDAD DE LA EXPLOSION
+		self.last_update = self.pg.time.get_ticks()
+		self.frame_rate = 50 
 
 	def update(self):
-		now = pygame.time.get_ticks()
+		now = self.pg.time.get_ticks()  
 		if now - self.last_update > self.frame_rate:
 			self.last_update = now
 			self.frame += 1
@@ -132,6 +149,8 @@ def show_go_screen():
 				waiting = False
 
 
+#Se juntan los distintos meteoros en un lista y se hace append al final de la misma para irlos motrando
+
 meteor_images = []
 meteor_list = ["assets/meteorGrey_big1.png", "assets/meteorGrey_big2.png", "assets/meteorGrey_big3.png", "assets/meteorGrey_big4.png",
 				"assets/meteorGrey_med1.png", "assets/meteorGrey_med2.png", "assets/meteorGrey_small1.png", "assets/meteorGrey_small2.png",
@@ -140,7 +159,7 @@ for img in meteor_list:
 	meteor_images.append(pygame.image.load(img).convert())
 
 
-####----------------EXPLOSTION IMAGENES --------------
+# Cargar animacion de explosion
 explosion_anim = []
 for i in range(9):
 	file = "assets/regularExplosion0{}.png".format(i)
@@ -149,19 +168,23 @@ for i in range(9):
 	img_scale = pygame.transform.scale(img, (70,70))
 	explosion_anim.append(img_scale)
 
-# Cargar imagen de fondo
+# Background del juego
 background = pygame.image.load("assets/background.png").convert()
 
-# Cargar sonidos
+# Sonidos del juego, no todos funcionales
 laser_sound = pygame.mixer.Sound("assets/laser5.ogg")
 explosion_sound = pygame.mixer.Sound("assets/explosion.wav")
 pygame.mixer.music.load("assets/music.ogg")
 pygame.mixer.music.set_volume(0.2)
 
+# Musica del juego
 
-#pygame.mixer.music.play(loops=-1)
+pygame.mixer.music.play(loops=-1)
 
-#### ----------GAME OVER
+# Generacion del juego como tal, se cargan los sprites
+# Se hace spawn de los meteoros
+# Se valida coliciones para la suma de puntos o perdida de vida
+
 game_over = True
 running = True
 while running:
@@ -174,7 +197,7 @@ while running:
 		meteor_list = pygame.sprite.Group()
 		bullets = pygame.sprite.Group()
 
-		player = Player()
+		player = Player(pygame)
 		all_sprites.add(player)
 		for i in range(8):
 			meteor = Meteor()
@@ -196,18 +219,21 @@ while running:
 
 	all_sprites.update()
 
-	#colisiones - meteoro - laser
+	# Validacion de coliciones entre los meteoros y los lasers asi mismo el jugador
+ 
 	hits = pygame.sprite.groupcollide(meteor_list, bullets, True, True)
 	for hit in hits:
 		score += 10
-		#explosion_sound.play()
-		explosion = Explosion(hit.rect.center)
+		explosion_sound.play()
+		explosion = Explosion(hit.rect.center, pygame)
 		all_sprites.add(explosion)
 		meteor = Meteor()
 		all_sprites.add(meteor)
 		meteor_list.add(meteor)
 
-	# Checar colisiones - jugador - meteoro
+	# Validar colicion de meteoro jugador para restar vida
+	# Si el escudo llega a cero se cierra el WHILE y se reinicia el juego
+ 
 	hits = pygame.sprite.spritecollide(player, meteor_list, True)
 	for hit in hits:
 		player.shield -= 25
@@ -221,11 +247,14 @@ while running:
 
 	all_sprites.draw(screen)
 
-	#Marcador
+	# Dibjuado del numero que respresenta el marcador
+ 
 	draw_text(screen, str(score), 25, WIDTH // 2, 10)
 
-	# Escudo.
+	# Dibujado del cuadro que representa el escudo
+ 
 	draw_shield_bar(screen, 5, 5, player.shield)
 
 	pygame.display.flip()
+ 
 pygame.quit()
